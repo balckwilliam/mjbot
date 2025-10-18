@@ -3,7 +3,10 @@
 Test script to verify that '5z' (White dragon) is handled correctly in MJAPI server
 """
 import sys
-sys.path.insert(0, '/home/runner/work/mjbot/mjbot/online_game')
+import os
+
+# Add the online_game directory to the path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from mjapi_server import (
     validate_mjai_tile,
