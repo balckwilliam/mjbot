@@ -298,10 +298,14 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
     # Update game state based on message
     game_state = session['game_state']
     
+    # Initialize seat from session if not already set
+    if 'seat' not in game_state:
+        game_state['seat'] = session.get('id', 0)
+    
     # Handle different message types
     if msg_type == 'start_game':
         game_state['started'] = True
-        game_state['seat'] = msg.get('id', 0)
+        game_state['seat'] = msg.get('id', session.get('id', 0))
         return None
     
     elif msg_type == 'start_kyoku':
@@ -316,8 +320,9 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
         # Handle initial hand
         if 'tehais' in msg:
             tehais = msg['tehais']
-            if isinstance(tehais, list) and len(tehais) > game_state.get('seat', 0):
-                game_state['hand'] = tehais[game_state['seat']]
+            seat = game_state.get('seat', 0)
+            if isinstance(tehais, list) and len(tehais) > seat:
+                game_state['hand'] = tehais[seat]
         
         return None
     
@@ -371,6 +376,85 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
             if 'doras' not in game_state:
                 game_state['doras'] = []
             game_state['doras'].append(dora_marker)
+        return None
+    
+    elif msg_type == 'pon':
+        actor = msg.get('actor')
+        target = msg.get('target')
+        pai = msg.get('pai')
+        consumed = msg.get('consumed', [])
+        
+        # Update game state
+        if actor == game_state.get('seat'):
+            # Remove consumed tiles from hand
+            if 'hand' in game_state:
+                for tile in consumed:
+                    if tile in game_state['hand']:
+                        game_state['hand'].remove(tile)
+        
+        return None
+    
+    elif msg_type == 'chi':
+        actor = msg.get('actor')
+        target = msg.get('target')
+        pai = msg.get('pai')
+        consumed = msg.get('consumed', [])
+        
+        # Update game state
+        if actor == game_state.get('seat'):
+            # Remove consumed tiles from hand
+            if 'hand' in game_state:
+                for tile in consumed:
+                    if tile in game_state['hand']:
+                        game_state['hand'].remove(tile)
+        
+        return None
+    
+    elif msg_type in ['daiminkan', 'ankan', 'kakan']:
+        actor = msg.get('actor')
+        pai = msg.get('pai')
+        consumed = msg.get('consumed', [])
+        
+        # Update game state
+        if actor == game_state.get('seat'):
+            # Remove consumed tiles from hand
+            if 'hand' in game_state:
+                for tile in consumed:
+                    if tile in game_state['hand']:
+                        game_state['hand'].remove(tile)
+        
+        return None
+    
+    elif msg_type == 'hora':
+        # Win announcement - just track it
+        actor = msg.get('actor')
+        target = msg.get('target')
+        if actor == game_state.get('seat'):
+            game_state['won'] = True
+        return None
+    
+    elif msg_type == 'ryukyoku':
+        # Draw game
+        game_state['ryukyoku'] = True
+        return None
+    
+    elif msg_type == 'end_kyoku':
+        # End of round - reset some state
+        if 'hand' in game_state:
+            del game_state['hand']
+        if 'tsumo_pai' in game_state:
+            del game_state['tsumo_pai']
+        game_state['kyoku_started'] = False
+        return None
+    
+    elif msg_type == 'end_game':
+        # End of game - reset game state
+        game_state.clear()
+        game_state['seat'] = session.get('id', 0)
+        return None
+    
+    elif msg_type == 'none':
+        # No action - just pass through
         return None
     
     # For other message types, just track state without reaction
@@ -501,7 +585,7 @@ def batch():
             return '', 200
         
     except Exception as e:
-        logger.error(f"Error in batch: {str(e)}")
+        logger.error(f"Error in batch: {str(e)}", exc_info=True)
         return jsonify({"error": "Batch processing failed"}), 500
 
 
