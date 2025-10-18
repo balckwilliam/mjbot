@@ -490,6 +490,90 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
     return None
 
 
+def mjai_tile_to_tenhou_id(mjai_tile: str) -> int:
+    """
+    Convert MJAI tile notation to Tenhou tile ID
+    
+    MJAI: "1m", "5pr", "9s", "1z", etc.
+    Tenhou: 0-135 (0-35 for manzu, 36-71 for pinzu, 72-107 for souzu, 108-135 for honors)
+    Red tiles: 16 (5mr), 52 (5pr), 88 (5sr)
+    
+    Args:
+        mjai_tile: MJAI tile string (e.g., "1m", "5pr", "9s", "1z")
+    
+    Returns:
+        Tenhou tile ID (0-135)
+    """
+    if not mjai_tile or len(mjai_tile) < 2:
+        raise ValueError(f"Invalid MJAI tile: {mjai_tile}")
+    
+    # Check if it's a red tile
+    is_red = mjai_tile.endswith('r')
+    if is_red:
+        mjai_tile = mjai_tile[:-1]  # Remove 'r' suffix
+    
+    # Parse tile number and suit
+    try:
+        number = int(mjai_tile[0])
+        suit = mjai_tile[1]
+    except (ValueError, IndexError):
+        raise ValueError(f"Invalid MJAI tile format: {mjai_tile}")
+    
+    # Convert to Tenhou ID
+    if suit == 'm':  # Manzu (characters)
+        base_id = (number - 1) * 4
+        if is_red and number == 5:
+            return 16  # Red 5 manzu
+    elif suit == 'p':  # Pinzu (dots)
+        base_id = 36 + (number - 1) * 4
+        if is_red and number == 5:
+            return 52  # Red 5 pinzu
+    elif suit == 's':  # Souzu (bamboo)
+        base_id = 72 + (number - 1) * 4
+        if is_red and number == 5:
+            return 88  # Red 5 souzu
+    elif suit == 'z':  # Honor tiles
+        if not 1 <= number <= 7:
+            raise ValueError(f"Invalid honor tile number: {number}")
+        base_id = 108 + (number - 1) * 4
+    else:
+        raise ValueError(f"Invalid suit: {suit}")
+    
+    # For non-red tiles, return base_id (can be any of the 4 identical tiles)
+    return base_id
+
+
+def tenhou_id_to_mjai_tile(tenhou_id: int) -> str:
+    """
+    Convert Tenhou tile ID to MJAI tile notation
+    
+    Args:
+        tenhou_id: Tenhou tile ID (0-135)
+    
+    Returns:
+        MJAI tile string (e.g., "1m", "5pr", "9s", "1z")
+    """
+    # Red tiles
+    if tenhou_id == 16:
+        return "5mr"
+    elif tenhou_id == 52:
+        return "5pr"
+    elif tenhou_id == 88:
+        return "5sr"
+    
+    # Regular tiles
+    tile_type = tenhou_id // 4
+    
+    if tile_type < 9:  # Manzu
+        return f"{tile_type + 1}m"
+    elif tile_type < 18:  # Pinzu
+        return f"{tile_type - 8}p"
+    elif tile_type < 27:  # Souzu
+        return f"{tile_type - 17}s"
+    else:  # Honor tiles
+        return f"{tile_type - 26}z"
+
+
 def make_dahai_decision(game_state: dict, session: dict) -> dict:
     """
     Make a discard (dahai) decision based on current game state
@@ -514,22 +598,46 @@ def make_dahai_decision(game_state: dict, session: dict) -> dict:
     # If we have an AI bot, use it for decision making
     if bot is not None and TORCH_AVAILABLE:
         try:
-            # Use the neural network model to make the discard decision
-            # Note: The AI bot expects Tenhou tile IDs (0-135), but MJAI uses strings like "1m", "5pr", etc.
-            # We need to convert MJAI tiles to Tenhou IDs for the model
-            import random
+            # Convert MJAI hand to Tenhou tile IDs for the neural network
+            tenhou_hand = []
+            for mjai_tile in hand:
+                try:
+                    tenhou_id = mjai_tile_to_tenhou_id(mjai_tile)
+                    tenhou_hand.append(tenhou_id)
+                except ValueError as e:
+                    logger.warning(f"Failed to convert tile {mjai_tile}: {e}")
+                    # Continue with other tiles
             
-            # For now, use simple random selection as the full integration requires
-            # game state conversion that's beyond the scope of this fix
-            # TODO: Implement full state conversion for proper AI decision
-            selected_pai = random.choice(hand)
+            if tenhou_hand:
+                # Use the neural network model to make the discard decision
+                # Note: The bot.discard method expects (state, tiles) where:
+                # - state: numpy array of game features (shape: [291, 34])
+                # - tiles: list of Tenhou tile IDs
+                # 
+                # For now, we use random selection because building the full state
+                # requires complete game context (all discards, melds, dora, etc.)
+                # TODO: Build complete game state features for neural network input
+                # This would require tracking:
+                # - All player discards and melds
+                # - Dora indicators
+                # - Round information (bakaze, kyoku, honba)
+                # - Riichi declarations
+                # See dataset/data.py and mahjong/game.py for state encoding
+                
+                import random
+                selected_tenhou_id = random.choice(tenhou_hand)
+                selected_pai = tenhou_id_to_mjai_tile(selected_tenhou_id)
+            else:
+                # Fallback if conversion failed
+                import random
+                selected_pai = random.choice(hand)
             
         except Exception as e:
             logger.warning(f"Error using AI bot: {e}, falling back to random")
             import random
             selected_pai = random.choice(hand)
     else:
-        # Fallback: random selection
+        # Fallback: random selection when AI bot is not available
         import random
         selected_pai = random.choice(hand)
     
