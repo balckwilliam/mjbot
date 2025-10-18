@@ -66,16 +66,20 @@ def react_batch_4p():
     
     Request format:
     {
-        "obs": [...],  # List of observations
-        "masks": [...]  # List of action masks
+        "obs": [...],  # List of observations, each observation should be:
+                       # - A flattened array of length 9894 (291 features × 34 tiles)
+                       # - Or a 2D array of shape [291, 34]
+                       # Features are extracted from game state using game.get_feature()
+        "masks": [...]  # List of action masks, each mask is a boolean array
+                        # indicating which actions are valid (True) or invalid (False)
     }
     
     Response format:
     {
-        "actions": [...],  # List of selected actions
-        "q_out": [...],  # Q-values for actions
-        "masks": [...],  # Returned masks
-        "is_greedy": [...]  # Whether actions were greedy
+        "actions": [...],  # List of selected actions (indices of chosen actions)
+        "q_out": [...],  # Q-values for all actions from the neural network
+        "masks": [...],  # Returned masks (same as input)
+        "is_greedy": [...]  # Whether actions were greedy (always True)
     }
     """
     if not verify_api_key():

@@ -34,8 +34,10 @@ def test_react_batch(base_url, api_key=None, use_gzip=False):
     print(f"Testing react_batch endpoint (gzip={use_gzip})...")
     
     # Create sample data
-    # obs: observation array (simplified example)
-    obs = [[0.0] * 100]  # Simplified observation
+    # For proper usage with the neural network, observations should be
+    # game state features of shape [291, 34] flattened to [9894]
+    # Here we use a simplified example that will fall back to random selection
+    obs = [[0.0] * 100]  # Simplified observation (will trigger fallback)
     masks = [[True] + [False] * 46]  # Only first action is valid
     
     post_data = {
@@ -68,6 +70,62 @@ def test_react_batch(base_url, api_key=None, use_gzip=False):
         print(f"Number of Q-values: {len(result['q_out'][0]) if result['q_out'] else 0}")
     else:
         print(f"Error: {response.text}")
+    print()
+
+
+def test_react_batch_with_real_features(base_url, api_key=None):
+    """Test react_batch endpoint with real game features"""
+    print("Testing react_batch endpoint with real game features...")
+    
+    try:
+        # Import game to generate real features
+        import sys
+        import os
+        sys.path.append(os.path.dirname(os.path.abspath(os.path.dirname(__file__))))
+        from mahjong.game import MahjongGame
+        import numpy as np
+        
+        # Create a game and generate features
+        game = MahjongGame(has_aka=True)
+        game.new_game(0, 0, 0)
+        feature = game.get_feature(0)
+        
+        print(f"Generated feature shape: {feature.shape}")
+        
+        # Flatten for transmission
+        obs_flat = feature.flatten().tolist()
+        
+        # Create mask for all 34 tiles (for discard decision)
+        mask = [True] * 34
+        
+        post_data = {
+            'obs': [obs_flat],
+            'masks': [mask]
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        if api_key:
+            headers['Authorization'] = api_key
+        
+        response = requests.post(f"{base_url}/react_batch", 
+                                headers=headers, 
+                                json=post_data)
+        
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            result = response.json()
+            print(f"AI selected action (tile index): {result['actions'][0]}")
+            print(f"Q-values (first 5): {result['q_out'][0][:5]}")
+            print(f"Is Greedy: {result['is_greedy'][0]}")
+            print("✓ Neural network decision successful!")
+        else:
+            print(f"Error: {response.text}")
+    except ImportError as e:
+        print(f"Skipping test - cannot import mahjong module: {e}")
+    except Exception as e:
+        print(f"Error during test: {e}")
+        import traceback
+        traceback.print_exc()
     print()
 
 
@@ -124,6 +182,7 @@ def main():
         test_react_batch(args.url, args.api_key, use_gzip=False)
         test_react_batch(args.url, args.api_key, use_gzip=True)
         test_react_batch_3p(args.url, args.api_key)
+        test_react_batch_with_real_features(args.url, args.api_key)
         
         print("=" * 50)
         print("All tests completed!")
