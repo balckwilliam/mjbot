@@ -114,6 +114,8 @@ $ python online_game/ot_server.py -p 5000
 $ python online_game/mjapi_server.py -p 5001
 ```
 
+快速入门指南：[docs/QUICKSTART_MJAPI.md](docs/QUICKSTART_MJAPI.md)
+
 详细文档请参见：[docs/MJAPI_SERVER.md](docs/MJAPI_SERVER.md)
 
 ## OT Server Interface
@@ -135,5 +137,7 @@ Start the MJAPI server:
 ```shell
 $ python online_game/mjapi_server.py -p 5001
 ```
+
+Quick start guide: [docs/QUICKSTART_MJAPI.md](docs/QUICKSTART_MJAPI.md)
 
 For detailed documentation, see: [docs/MJAPI_SERVER.md](docs/MJAPI_SERVER.md)
