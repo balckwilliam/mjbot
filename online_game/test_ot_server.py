@@ -160,6 +160,53 @@ def test_react_batch_3p(base_url, api_key=None):
     print()
 
 
+def test_react_batch_with_extended_features(base_url, api_key=None):
+    """Test react_batch endpoint with extended 1012-feature observations"""
+    print("Testing react_batch endpoint with extended features (1012x34)...")
+    
+    try:
+        import numpy as np
+        
+        # Create a 1012x34 observation (simulating MahjongCopilot's extended features)
+        obs_2d = np.random.rand(1012, 34)
+        obs_flat = obs_2d.flatten().tolist()
+        
+        print(f"Generated extended feature observation: 1012 x 34 = {len(obs_flat)} elements")
+        
+        # Create mask for all 34 tiles (for discard decision)
+        mask = [True] * 34
+        
+        post_data = {
+            'obs': [obs_flat],
+            'masks': [mask]
+        }
+        
+        headers = {'Content-Type': 'application/json'}
+        if api_key:
+            headers['Authorization'] = api_key
+        
+        response = requests.post(f"{base_url}/react_batch", 
+                                headers=headers, 
+                                json=post_data)
+        
+        print(f"Status: {response.status_code}")
+        if response.status_code == 200:
+            result = response.json()
+            print(f"AI selected action (tile index): {result['actions'][0]}")
+            print(f"Q-values (first 5): {result['q_out'][0][:5]}")
+            print(f"Is Greedy: {result['is_greedy'][0]}")
+            print("✓ Extended feature handling successful!")
+        else:
+            print(f"Error: {response.text}")
+    except ImportError as e:
+        print(f"Skipping test - numpy not available: {e}")
+    except Exception as e:
+        print(f"Error during test: {e}")
+        import traceback
+        traceback.print_exc()
+    print()
+
+
 def main():
     import argparse
     
@@ -183,6 +230,7 @@ def main():
         test_react_batch(args.url, args.api_key, use_gzip=True)
         test_react_batch_3p(args.url, args.api_key)
         test_react_batch_with_real_features(args.url, args.api_key)
+        test_react_batch_with_extended_features(args.url, args.api_key)
         
         print("=" * 50)
         print("All tests completed!")

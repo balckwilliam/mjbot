@@ -177,6 +177,20 @@ Observation data is a multi-dimensional array containing game state information,
 - 得分 / Scores
 - 等等 / etc.
 
+**支持的格式 / Supported Formats:**
+
+1. **标准格式 / Standard Format:** 
+   - 形状 `[291, 34]` 或扁平化为长度 `9894` 的数组
+   - Shape `[291, 34]` or flattened to array of length `9894`
+
+2. **扩展格式 / Extended Format:**
+   - 形状 `[1012, 34]` 或更多特征的扩展特征集
+   - Shape `[1012, 34]` or extended feature sets with more features
+   - 服务器会自动提取前 291 个特征用于模型推理
+   - Server automatically extracts first 291 features for model inference
+   - 向后兼容 MahjongCopilot 的较新版本
+   - Backward compatible with newer versions of MahjongCopilot
+
 ### 动作掩码 (masks) / Action Masks
 
 动作掩码是一个布尔数组，指示哪些动作是有效的：

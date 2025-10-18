@@ -69,6 +69,8 @@ def react_batch_4p():
         "obs": [...],  # List of observations, each observation should be:
                        # - A flattened array of length 9894 (291 features × 34 tiles)
                        # - Or a 2D array of shape [291, 34]
+                       # - Or extended feature sets (e.g., [1012, 34]) from which
+                       #   the first 291 features will be extracted
                        # Features are extracted from game state using game.get_feature()
         "masks": [...]  # List of action masks, each mask is a boolean array
                         # indicating which actions are valid (True) or invalid (False)
@@ -115,16 +117,35 @@ def react_batch_4p():
                 try:
                     # Convert observation to tensor
                     # Expected shape: [291, 34] or can be flattened [291*34]
-                    if hasattr(obs, 'ndim') and obs.ndim == 2 and obs.shape[0] == 291 and obs.shape[1] == 34:
-                        # Already in correct 2D shape
-                        state_array = obs
+                    # Also support extended feature sets (e.g., [1012, 34]) by extracting first 291 features
+                    if hasattr(obs, 'ndim') and obs.ndim == 2:
+                        if obs.shape[1] == 34:
+                            if obs.shape[0] == 291:
+                                # Already in correct 2D shape
+                                state_array = obs
+                            elif obs.shape[0] > 291:
+                                # Extended feature set - extract first 291 features
+                                logger.debug(f"Extracting first 291 features from observation with shape {obs.shape}")
+                                state_array = obs[:291, :]
+                            else:
+                                # Too few features
+                                obs_shape = obs.shape
+                                raise ValueError(f"Invalid observation shape: expected at least [291, 34], got {obs_shape}")
+                        else:
+                            obs_shape = obs.shape
+                            raise ValueError(f"Invalid observation shape: expected second dimension to be 34, got {obs_shape}")
                     elif len(obs) == 291 * 34:
                         # Flattened observation - need to reshape
                         state_array = obs.reshape(291, 34)
+                    elif len(obs) > 291 * 34 and len(obs) % 34 == 0:
+                        # Flattened extended feature set
+                        num_features = len(obs) // 34
+                        logger.debug(f"Extracting first 291 features from flattened observation with {num_features} features")
+                        state_array = obs.reshape(num_features, 34)[:291, :]
                     else:
                         # Invalid observation shape
                         obs_shape = getattr(obs, 'shape', f'length {len(obs)}')
-                        raise ValueError(f"Invalid observation shape: expected [291, 34] or [9894], got {obs_shape}")
+                        raise ValueError(f"Invalid observation shape: expected [291, 34], [9894], or extended feature set, got {obs_shape}")
                     
                     state = torch.from_numpy(state_array).float()[None].to(ai_agent.device)
                     
