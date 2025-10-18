@@ -3,30 +3,36 @@
 ## Issues Fixed
 
 ### 1. KeyError: 'seat'
-**Problem:** The server would crash with a KeyError when accessing `game_state['seat']` in certain edge cases.
 
-**Root Causes:**
+#### Problem
+The server would crash with a KeyError when accessing `game_state['seat']` in certain edge cases.
+
+#### Root Causes
 - When `/mjai/start` was called without an `id` field, or with `id=None`
 - When `start_game` message didn't include an `id` field  
 - The seat initialization didn't properly handle `None` values
 
-**Solution:**
+#### Solution
 - Added proper validation in `start_bot()` to ensure `id` is always a valid integer (0-3)
 - Modified seat initialization to always fall back to 0 if the value is None
 - Added type checking to ensure seat is an integer before using it as an index
 
 ### 2. AttributeError: 'NoneType' object has no attribute 'get'
-**Problem:** The server would crash when batch messages had missing or None `data` fields.
 
-**Solution:**
+#### Problem
+The server would crash when batch messages had missing or None `data` fields.
+
+#### Solution
 - Added validation in `batch()` endpoint to check if `msg_data` is None or not a dict
 - Added validation in `act()` endpoint with proper error messages
 - Modified `process_mjai_message()` to handle None messages gracefully
 
 ### 3. TypeError: '>' not supported between instances of 'int' and 'NoneType'
-**Problem:** When comparing list length with a None seat value in `start_kyoku` handling.
 
-**Solution:**
+#### Problem
+When comparing list length with a None seat value in `start_kyoku` handling.
+
+#### Solution
 - Added type checking before using seat as an index
 - Ensured seat is always an integer value
 
