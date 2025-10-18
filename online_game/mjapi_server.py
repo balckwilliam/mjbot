@@ -378,6 +378,85 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
             game_state['doras'].append(dora_marker)
         return None
     
+    elif msg_type == 'pon':
+        actor = msg.get('actor')
+        target = msg.get('target')
+        pai = msg.get('pai')
+        consumed = msg.get('consumed', [])
+        
+        # Update game state
+        if actor == game_state.get('seat'):
+            # Remove consumed tiles from hand
+            hand = game_state.get('hand', [])
+            for tile in consumed:
+                if tile in hand:
+                    hand.remove(tile)
+        
+        return None
+    
+    elif msg_type == 'chi':
+        actor = msg.get('actor')
+        target = msg.get('target')
+        pai = msg.get('pai')
+        consumed = msg.get('consumed', [])
+        
+        # Update game state
+        if actor == game_state.get('seat'):
+            # Remove consumed tiles from hand
+            hand = game_state.get('hand', [])
+            for tile in consumed:
+                if tile in hand:
+                    hand.remove(tile)
+        
+        return None
+    
+    elif msg_type in ['daiminkan', 'ankan', 'kakan']:
+        actor = msg.get('actor')
+        pai = msg.get('pai')
+        consumed = msg.get('consumed', [])
+        
+        # Update game state
+        if actor == game_state.get('seat'):
+            # Remove consumed tiles from hand
+            hand = game_state.get('hand', [])
+            for tile in consumed:
+                if tile in hand:
+                    hand.remove(tile)
+        
+        return None
+    
+    elif msg_type == 'hora':
+        # Win announcement - just track it
+        actor = msg.get('actor')
+        target = msg.get('target')
+        if actor == game_state.get('seat'):
+            game_state['won'] = True
+        return None
+    
+    elif msg_type == 'ryukyoku':
+        # Draw game
+        game_state['ryukyoku'] = True
+        return None
+    
+    elif msg_type == 'end_kyoku':
+        # End of round - reset some state
+        if 'hand' in game_state:
+            del game_state['hand']
+        if 'tsumo_pai' in game_state:
+            del game_state['tsumo_pai']
+        game_state['kyoku_started'] = False
+        return None
+    
+    elif msg_type == 'end_game':
+        # End of game - reset game state
+        game_state.clear()
+        game_state['seat'] = session.get('id', 0)
+        return None
+    
+    elif msg_type == 'none':
+        # No action - just pass through
+        return None
+    
     # For other message types, just track state without reaction
     return None
 
@@ -506,8 +585,8 @@ def batch():
             return '', 200
         
     except Exception as e:
-        logger.error(f"Error in batch: {str(e)}")
-        return jsonify({"error": "Batch processing failed"}), 500
+        logger.error(f"Error in batch: {str(e)}", exc_info=True)
+        return jsonify({"error": "Batch processing failed", "details": str(e)}), 500
 
 
 @app.route('/health', methods=['GET'])
