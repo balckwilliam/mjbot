@@ -221,9 +221,22 @@ def start_bot():
         token = user_data.get('token')
         data = request.get_json()
         
-        bot_id = data.get('id')
+        bot_id = data.get('id', 0)  # Default to 0 if not provided
         bound = data.get('bound', 256)
         model = data.get('model', 'mjbot-default')
+        
+        # Validate bot_id is a valid integer
+        if bot_id is None:
+            bot_id = 0
+        elif not isinstance(bot_id, int):
+            try:
+                bot_id = int(bot_id)
+            except (ValueError, TypeError):
+                bot_id = 0
+        
+        # Ensure bot_id is in valid range (0-3 for 4 players)
+        if bot_id < 0 or bot_id > 3:
+            return jsonify({"error": "Invalid 'id': must be 0-3"}), 400
         
         if model not in available_models:
             return jsonify({"error": f"Model {model} not found"}), 404
@@ -243,17 +256,17 @@ def start_bot():
             'bound': bound,
             'model': model,
             'seq': 0,
-            'game_state': {}  # Store game state for mjai protocol
+            'game_state': {'seat': bot_id}  # Initialize with seat from id
         }
         
-        logger.info(f"Started bot session for user {username} with model {model}")
+        logger.info(f"Started bot session for user {username} with model {model}, id={bot_id}")
         
         return jsonify({
             'result': 'success'
         }), 200
         
     except Exception as e:
-        logger.error(f"Error in start_bot: {str(e)}")
+        logger.error(f"Error in start_bot: {str(e)}", exc_info=True)
         return jsonify({"error": "Failed to start bot"}), 500
 
 
@@ -293,19 +306,28 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
     Returns:
         mjai protocol reaction message or None
     """
+    # Validate message is not None
+    if msg is None:
+        logger.warning(f"Received None message for user {username}")
+        return None
+    
     msg_type = msg.get('type')
     
     # Update game state based on message
     game_state = session['game_state']
     
     # Initialize seat from session if not already set
+    # Ensure seat is always an integer (default to 0)
     if 'seat' not in game_state:
-        game_state['seat'] = session.get('id', 0)
+        seat_value = session.get('id')
+        game_state['seat'] = 0 if seat_value is None else seat_value
     
     # Handle different message types
     if msg_type == 'start_game':
         game_state['started'] = True
-        game_state['seat'] = msg.get('id', session.get('id', 0))
+        # Get seat from message id, fallback to session id, then to 0
+        seat_value = msg.get('id', session.get('id'))
+        game_state['seat'] = 0 if seat_value is None else seat_value
         return None
     
     elif msg_type == 'start_kyoku':
@@ -321,7 +343,8 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
         if 'tehais' in msg:
             tehais = msg['tehais']
             seat = game_state.get('seat', 0)
-            if isinstance(tehais, list) and len(tehais) > seat:
+            # Ensure seat is a valid integer before using as index
+            if seat is not None and isinstance(tehais, list) and isinstance(seat, int) and len(tehais) > seat:
                 game_state['hand'] = tehais[seat]
         
         return None
@@ -450,7 +473,9 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
     elif msg_type == 'end_game':
         # End of game - reset game state
         game_state.clear()
-        game_state['seat'] = session.get('id', 0)
+        # Ensure seat is always set after reset
+        seat_value = session.get('id')
+        game_state['seat'] = 0 if seat_value is None else seat_value
         return None
     
     elif msg_type == 'none':
@@ -520,8 +545,19 @@ def act():
             return jsonify({"error": "Bot not started"}), 400
         
         data = request.get_json()
+        
+        if not isinstance(data, dict):
+            return jsonify({"error": "Expected JSON object"}), 400
+        
         seq = data.get('seq')
         msg_data = data.get('data')
+        
+        # Validate msg_data
+        if msg_data is None:
+            return jsonify({"error": "Missing 'data' field"}), 400
+        
+        if not isinstance(msg_data, dict):
+            return jsonify({"error": "Invalid 'data' field: must be an object"}), 400
         
         session = sessions[token]
         
@@ -539,7 +575,7 @@ def act():
             return '', 200
         
     except Exception as e:
-        logger.error(f"Error in act: {str(e)}")
+        logger.error(f"Error in act: {str(e)}", exc_info=True)
         return jsonify({"error": "Action processing failed"}), 500
 
 
@@ -569,13 +605,33 @@ def batch():
         
         # Process all messages, return last reaction
         last_reaction = None
-        for action in actions:
+        for i, action in enumerate(actions):
+            # Validate action structure
+            if not isinstance(action, dict):
+                logger.warning(f"Invalid action at index {i} for user {username}: not a dict")
+                continue
+            
             seq = action.get('seq')
             msg_data = action.get('data')
             
-            reaction = process_mjai_message(msg_data, session, username)
-            if reaction:
-                last_reaction = reaction
+            # Validate msg_data exists
+            if msg_data is None:
+                logger.warning(f"Missing 'data' field in action at index {i} for user {username}")
+                continue
+            
+            # Validate msg_data is a dict
+            if not isinstance(msg_data, dict):
+                logger.warning(f"Invalid 'data' field in action at index {i} for user {username}: not a dict")
+                continue
+            
+            try:
+                reaction = process_mjai_message(msg_data, session, username)
+                if reaction:
+                    last_reaction = reaction
+            except Exception as msg_error:
+                logger.error(f"Error processing message at index {i} for user {username}: {str(msg_error)}", exc_info=True)
+                # Continue processing other messages instead of failing the entire batch
+                continue
         
         if last_reaction:
             return jsonify({
