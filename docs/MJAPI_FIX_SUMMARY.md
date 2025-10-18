@@ -2,7 +2,36 @@
 
 ## Issues Fixed
 
-### 1. KeyError: 'seat'
+### 1. Invalid MJAI Tile Format Errors
+
+#### Problem
+The server would log warnings about invalid tile formats when receiving honor tiles in single-character format:
+```
+WARNING - Failed to convert tile S: Invalid MJAI tile: S
+WARNING - Failed to convert tile C: Invalid MJAI tile: C
+WARNING - Failed to convert tile F: Invalid MJAI tile: F
+```
+
+These warnings occurred because some MJAI clients (e.g., MahjongCopilot) send honor tiles using single-character notation instead of the standard `1z`-`7z` format.
+
+#### Root Cause
+The `mjai_tile_to_tenhou_id()` function only accepted standard MJAI tile notation and didn't handle alternate honor tile formats commonly used in some mahjong platforms.
+
+#### Solution
+- Added `normalize_tile_format()` function that converts alternate single-character honor tiles to standard MJAI format
+- Supported alternate formats:
+  - `E` → `1z` (East wind / 东风)
+  - `S` → `2z` (South wind / 南风)
+  - `W` → `3z` (West wind / 西风)
+  - `N` → `4z` (North wind / 北风)
+  - `P` → `5z` (White dragon / 白板)
+  - `F` → `6z` (Green dragon / 发财)
+  - `C` → `7z` (Red dragon / 红中)
+- Updated `mjai_tile_to_tenhou_id()` to normalize tiles before processing
+- Both uppercase and lowercase variants are supported
+- Standard MJAI format tiles pass through unchanged
+
+### 2. KeyError: 'seat'
 
 #### Problem
 The server would crash with a KeyError when accessing `game_state['seat']` in certain edge cases.
@@ -74,6 +103,8 @@ All tests pass successfully:
 5. **Client examples** - Both basic and batch usage examples work correctly
 
 ### Edge Cases Handled
+- ✅ Alternate honor tile formats (E, S, W, N, P, F, C)
+- ✅ Mixed standard and alternate tile formats
 - ✅ Missing `data` field in messages
 - ✅ Missing `id` field in start_game
 - ✅ Missing `id` field in /mjai/start
@@ -89,7 +120,18 @@ All tests pass successfully:
 
 ### online_game/mjapi_server.py
 
-1. **process_mjai_message()** (lines 284-310)
+1. **normalize_tile_format()** (lines ~493-529)
+   - New function to normalize alternate honor tile formats
+   - Maps single-character tiles (E, S, W, N, P, F, C) to standard MJAI format (1z-7z)
+   - Case-insensitive handling
+   - Passes through standard format tiles unchanged
+
+2. **mjai_tile_to_tenhou_id()** (lines ~531-586)
+   - Modified to call normalize_tile_format() before processing
+   - Now handles both standard and alternate tile formats
+   - Prevents "Invalid MJAI tile" errors for alternate formats
+
+3. **process_mjai_message()** (lines 284-310)
    - Added validation for None messages
    - Improved seat initialization to handle None values
    - Added type checking for seat before using as index
