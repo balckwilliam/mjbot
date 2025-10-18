@@ -93,9 +93,9 @@ Indicates a player discards a tile.
 - `type`: "dahai"
 - `actor`: Player seat (0-3)
 - `pai`: Tile discarded
+- `tsumogiri`: Boolean indicating if discarded immediately after draw
 
 **Optional fields:**
-- `tsumogiri`: Boolean indicating if discarded immediately after draw
 - `can_act`: Boolean indicating if other players can react
 
 **Example:**
@@ -103,7 +103,8 @@ Indicates a player discards a tile.
 {
     "type": "dahai",
     "actor": 0,
-    "pai": "9m"
+    "pai": "9m",
+    "tsumogiri": false
 }
 ```
 
