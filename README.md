@@ -105,6 +105,17 @@ $ python online_game/ot_server.py -p 5000
 
 详细文档请参见：[docs/OT_SERVER.md](docs/OT_SERVER.md)
 
+## MJAPI服务器接口
+
+本项目现已支持 [@latorc/MahjongCopilot](https://github.com/latorc/MahjongCopilot) 的MJAPI服务器接口，使用mjai协议进行通信，允许其他应用程序通过HTTP API获取AI决策。
+
+启动MJAPI服务器：
+```shell
+$ python online_game/mjapi_server.py -p 5001
+```
+
+详细文档请参见：[docs/MJAPI_SERVER.md](docs/MJAPI_SERVER.md)
+
 ## OT Server Interface
 
 This project now supports the OT server interface from [@latorc/MahjongCopilot](https://github.com/latorc/MahjongCopilot), allowing other applications to get AI decisions via HTTP API.
@@ -115,3 +126,14 @@ $ python online_game/ot_server.py -p 5000
 ```
 
 For detailed documentation, see: [docs/OT_SERVER.md](docs/OT_SERVER.md)
+
+## MJAPI Server Interface
+
+This project now supports the MJAPI server interface from [@latorc/MahjongCopilot](https://github.com/latorc/MahjongCopilot), using the mjai protocol for communication, allowing other applications to get AI decisions via HTTP API.
+
+Start the MJAPI server:
+```shell
+$ python online_game/mjapi_server.py -p 5001
+```
+
+For detailed documentation, see: [docs/MJAPI_SERVER.md](docs/MJAPI_SERVER.md)
