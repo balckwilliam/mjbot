@@ -387,10 +387,10 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
         # Update game state
         if actor == game_state.get('seat'):
             # Remove consumed tiles from hand
-            hand = game_state.get('hand', [])
-            for tile in consumed:
-                if tile in hand:
-                    hand.remove(tile)
+            if 'hand' in game_state:
+                for tile in consumed:
+                    if tile in game_state['hand']:
+                        game_state['hand'].remove(tile)
         
         return None
     
@@ -403,10 +403,10 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
         # Update game state
         if actor == game_state.get('seat'):
             # Remove consumed tiles from hand
-            hand = game_state.get('hand', [])
-            for tile in consumed:
-                if tile in hand:
-                    hand.remove(tile)
+            if 'hand' in game_state:
+                for tile in consumed:
+                    if tile in game_state['hand']:
+                        game_state['hand'].remove(tile)
         
         return None
     
@@ -418,10 +418,10 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
         # Update game state
         if actor == game_state.get('seat'):
             # Remove consumed tiles from hand
-            hand = game_state.get('hand', [])
-            for tile in consumed:
-                if tile in hand:
-                    hand.remove(tile)
+            if 'hand' in game_state:
+                for tile in consumed:
+                    if tile in game_state['hand']:
+                        game_state['hand'].remove(tile)
         
         return None
     
