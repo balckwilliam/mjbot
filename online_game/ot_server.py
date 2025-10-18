@@ -66,16 +66,20 @@ def react_batch_4p():
     
     Request format:
     {
-        "obs": [...],  # List of observations
-        "masks": [...]  # List of action masks
+        "obs": [...],  # List of observations, each observation should be:
+                       # - A flattened array of length 9894 (291 features × 34 tiles)
+                       # - Or a 2D array of shape [291, 34]
+                       # Features are extracted from game state using game.get_feature()
+        "masks": [...]  # List of action masks, each mask is a boolean array
+                        # indicating which actions are valid (True) or invalid (False)
     }
     
     Response format:
     {
-        "actions": [...],  # List of selected actions
-        "q_out": [...],  # Q-values for actions
-        "masks": [...],  # Returned masks
-        "is_greedy": [...]  # Whether actions were greedy
+        "actions": [...],  # List of selected actions (indices of chosen actions)
+        "q_out": [...],  # Q-values for all actions from the neural network
+        "masks": [...],  # Returned masks (same as input)
+        "is_greedy": [...]  # Whether actions were greedy (always True)
     }
     """
     if not verify_api_key():
@@ -107,20 +111,58 @@ def react_batch_4p():
                 if isinstance(mask, list):
                     mask = np.array(mask)
                 
-                # Use AI agent to make decision
-                # For now, select random valid action based on mask
-                valid_actions = [i for i, m in enumerate(mask) if m]
-                if valid_actions:
-                    action = int(np.random.choice(valid_actions))
-                else:
-                    action = 0
-                
-                actions.append(action)
-                # Return dummy Q-values
-                q_values = [0.0] * len(mask)
-                if valid_actions:
-                    q_values[action] = 1.0
-                q_out.append(q_values)
+                # Use AI agent's discard model to make decision
+                try:
+                    # Convert observation to tensor
+                    # Expected shape: [291, 34] or can be flattened [291*34]
+                    if hasattr(obs, 'ndim') and obs.ndim == 2 and obs.shape[0] == 291 and obs.shape[1] == 34:
+                        # Already in correct 2D shape
+                        state_array = obs
+                    elif len(obs) == 291 * 34:
+                        # Flattened observation - need to reshape
+                        state_array = obs.reshape(291, 34)
+                    else:
+                        # Invalid observation shape
+                        obs_shape = getattr(obs, 'shape', f'length {len(obs)}')
+                        raise ValueError(f"Invalid observation shape: expected [291, 34] or [9894], got {obs_shape}")
+                    
+                    state = torch.from_numpy(state_array).float()[None].to(ai_agent.device)
+                    
+                    # Get Q-values from the discard model
+                    # Note: We use softmax to convert logits to probabilities for action selection
+                    with torch.no_grad():
+                        if ai_agent.discard_model is not None:
+                            output = ai_agent.discard_model(state).softmax(1)[0]
+                            q_values = output.cpu().numpy().tolist()
+                        else:
+                            # Fallback if model not loaded
+                            q_values = [1.0 / len(mask)] * len(mask)
+                    
+                    # Apply mask to Q-values and select best valid action
+                    valid_actions = [i for i, m in enumerate(mask) if m]
+                    if valid_actions:
+                        # Mask out invalid actions by setting their Q-values to -inf
+                        masked_q_values = np.array(q_values)
+                        masked_q_values[[i for i in range(len(mask)) if not mask[i]]] = -np.inf
+                        action = int(np.argmax(masked_q_values))
+                    else:
+                        action = 0
+                    
+                    actions.append(action)
+                    q_out.append(q_values)
+                except Exception as e:
+                    logger.warning(f"Error using AI model: {str(e)}, falling back to random selection")
+                    # Fallback to random selection on error
+                    valid_actions = [i for i, m in enumerate(mask) if m]
+                    if valid_actions:
+                        action = int(np.random.choice(valid_actions))
+                    else:
+                        action = 0
+                    actions.append(action)
+                    q_values = [0.0] * len(mask)
+                    if valid_actions:
+                        q_values[action] = 1.0
+                    q_out.append(q_values)
             else:
                 # Fallback: random action selection using Python's random module
                 valid_actions = [i for i, m in enumerate(mask) if m]

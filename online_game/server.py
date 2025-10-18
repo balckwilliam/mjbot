@@ -112,7 +112,7 @@ class GameEnvironment(object):
         self.train = train
         if train:
             self.device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-            params = torch.load('model/saved/reward-model/best.pt', map_location=self.device)
+            params = torch.load('model/saved/reward-model/best.pt', map_location=self.device, weights_only=False)
             self.reward_model = RewardPredictor(74, params['hidden_dims'], params['num_layers'])
             self.reward_model.load_state_dict(params['state_dict'])
             self.reward_model.to(self.device)
