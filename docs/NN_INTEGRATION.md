@@ -49,19 +49,23 @@ The AiAgent expects:
 
 ### State Features (291 total)
 
+The state encoding requires tracking all aspects of the game across 34 tile types:
+- **34 tile types**: 9 manzu + 9 pinzu + 9 souzu + 7 honors
+- **291 features**: Various game state aspects for each tile type
+
 The state encoding requires tracking:
 
-1. **Hand tiles** (34 features): Count of each tile type in hand
-2. **Discards** (34 × 4 = 136 features): Each player's discarded tiles
+1. **Hand tiles** (34 features): Count of each tile type in hand (0-4)
+2. **Discards** (34 × 4 = 136 features): Each player's discarded tiles (binary: present/absent)
 3. **Melds** (varies): Exposed melds (chi, pon, kan)
-4. **Dora indicators** (34 features): Current dora
+4. **Dora indicators** (34 features): Current dora (binary: is dora/not dora)
 5. **Game context**:
-   - Round wind (bakaze)
-   - Seat wind
-   - Round number (kyoku)
-   - Honba count
-   - Riichi declarations
-   - Current scores
+   - Round wind (bakaze): 'E', 'S', 'W', 'N'
+   - Seat wind: Relative to bakaze
+   - Round number (kyoku): 1-4
+   - Honba count: Number of repeat rounds
+   - Riichi declarations: Boolean per player
+   - Current scores: Points divided by 100
 
 See `dataset/data.py` and `mahjong/game.py` for the complete state encoding implementation.
 
@@ -75,17 +79,17 @@ Extend the `game_state` dictionary in `mjapi_server.py` to track:
 
 ```python
 game_state = {
-    'seat': int,           # Player seat (0-3)
-    'hand': list,          # Current hand (MJAI format)
-    'tsumo_pai': str,      # Just-drawn tile
-    'all_discards': [[], [], [], []],  # All players' discards
-    'all_melds': [[], [], [], []],     # All players' melds
-    'dora_markers': [],    # List of dora indicators
-    'riichi_declarations': [False, False, False, False],
-    'scores': [int, int, int, int],
-    'bakaze': str,         # Round wind
-    'kyoku': int,          # Round number
-    'honba': int,          # Honba count
+    'seat': int,                      # Player seat (0-3)
+    'hand': list,                     # Current hand (MJAI format strings)
+    'tsumo_pai': str,                 # Just-drawn tile (MJAI format)
+    'all_discards': [[], [], [], []], # All players' discards (list of MJAI strings)
+    'all_melds': [[], [], [], []],    # All players' melds (list of meld dicts)
+    'dora_markers': [],               # List of dora indicators (MJAI strings)
+    'riichi_declarations': [False, False, False, False],  # Per player
+    'scores': [int, int, int, int],   # Current scores
+    'bakaze': str,                    # Round wind: 'E', 'S', 'W', or 'N'
+    'kyoku': int,                     # Round number (1-4)
+    'honba': int,                     # Honba count (bonus counter)
 }
 ```
 
@@ -158,10 +162,10 @@ After full integration, test with:
 
 ## References
 
-- `dataset/data.py`: State encoding implementation
-- `mahjong/game.py`: Full game state management
+- `dataset/data.py`: State encoding implementation from training data
+- `mahjong/game.py`: Full game simulation and state management (reference for what state to track)
 - `mahjong/agent.py`: AiAgent class and model interfaces
-- `online_game/server.py`: Reference server with full integration
+- `online_game/server.py`: Reference server with complete game state tracking
 - `docs/mjai_protocol.md`: MJAI protocol specification
 
 ## Current Limitations
