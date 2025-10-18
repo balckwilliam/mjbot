@@ -337,7 +337,16 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
         game_state['honba'] = msg.get('honba')
         game_state['oya'] = msg.get('oya')
         game_state['scores'] = msg.get('scores', [])
-        game_state['dora_marker'] = msg.get('dora_marker')
+        
+        # Validate and store dora_marker
+        dora_marker = msg.get('dora_marker')
+        if dora_marker:
+            if validate_mjai_tile(dora_marker):
+                game_state['dora_marker'] = dora_marker
+                logger.debug(f"Dora marker: {dora_marker} ({mjai_tile_to_display_string(dora_marker)})")
+            else:
+                logger.warning(f"Invalid dora_marker: {dora_marker}")
+                game_state['dora_marker'] = dora_marker  # Store anyway but log warning
         
         # Handle initial hand
         if 'tehais' in msg:
@@ -345,13 +354,23 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
             seat = game_state.get('seat', 0)
             # Ensure seat is a valid integer before using as index
             if seat is not None and isinstance(tehais, list) and isinstance(seat, int) and len(tehais) > seat:
-                game_state['hand'] = tehais[seat]
+                hand = tehais[seat]
+                # Validate hand tiles
+                invalid_tiles = [tile for tile in hand if not validate_mjai_tile(tile)]
+                if invalid_tiles:
+                    logger.warning(f"Invalid tiles in initial hand: {invalid_tiles}")
+                game_state['hand'] = hand
+                logger.debug(f"Initial hand for seat {seat}: {hand}")
         
         return None
     
     elif msg_type == 'tsumo':
         actor = msg.get('actor')
         pai = msg.get('pai')
+        
+        # Validate tile
+        if pai and not validate_mjai_tile(pai):
+            logger.warning(f"Invalid tile in tsumo: {pai}")
         
         # If it's our turn, we need to decide what to discard
         if actor == game_state.get('seat'):
@@ -361,6 +380,7 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
                 if 'hand' not in game_state:
                     game_state['hand'] = []
                 game_state['hand'].append(pai)
+                logger.debug(f"Drew tile: {pai} ({mjai_tile_to_display_string(pai) if validate_mjai_tile(pai) else 'invalid'})")
             
             # Check if we can act (should be indicated by can_act flag)
             if msg.get('can_act', True):
@@ -618,6 +638,97 @@ def tenhou_id_to_mjai_tile(tenhou_id: int) -> str:
         return f"{tile_type - 26}z"
 
 
+def mjai_tile_to_display_string(mjai_tile: str) -> str:
+    """
+    Convert MJAI tile notation to human-readable Chinese display string
+    
+    Handles both standard MJAI format (1m-9m, 1p-9p, 1s-9s, 1z-7z) and
+    alternate single-character format (E, S, W, N, P, F, C).
+    
+    Args:
+        mjai_tile: MJAI tile string (e.g., "1m", "5pr", "9s", "1z", "5z", "P")
+    
+    Returns:
+        Chinese display string (e.g., "一萬", "五饼", "九索", "東", "白")
+    
+    Examples:
+        >>> mjai_tile_to_display_string("1m")
+        '一萬'
+        >>> mjai_tile_to_display_string("5z")
+        '白'
+        >>> mjai_tile_to_display_string("P")
+        '白'
+    """
+    # Normalize alternate formats
+    mjai_tile = normalize_tile_format(mjai_tile)
+    
+    # Chinese numerals
+    chinese_numerals = {
+        1: '一', 2: '二', 3: '三', 4: '四', 5: '五',
+        6: '六', 7: '七', 8: '八', 9: '九'
+    }
+    
+    # Honor tiles mapping
+    honor_tiles = {
+        '1z': '東',  # East
+        '2z': '南',  # South
+        '3z': '西',  # West
+        '4z': '北',  # North
+        '5z': '白',  # White dragon
+        '6z': '發',  # Green dragon
+        '7z': '中',  # Red dragon
+    }
+    
+    # Handle red tiles
+    is_red = mjai_tile.endswith('r')
+    if is_red:
+        mjai_tile = mjai_tile[:-1]
+    
+    # Check if it's an honor tile
+    if mjai_tile in honor_tiles:
+        return honor_tiles[mjai_tile]
+    
+    # Parse number and suit
+    try:
+        number = int(mjai_tile[0])
+        suit = mjai_tile[1]
+    except (ValueError, IndexError):
+        return mjai_tile  # Return as-is if can't parse
+    
+    # Convert to display string
+    num_str = chinese_numerals.get(number, str(number))
+    
+    if suit == 'm':
+        return f"{'赤' if is_red else ''}{num_str}萬"
+    elif suit == 'p':
+        return f"{'赤' if is_red else ''}{num_str}饼"
+    elif suit == 's':
+        return f"{'赤' if is_red else ''}{num_str}索"
+    else:
+        return mjai_tile
+
+
+def validate_mjai_tile(mjai_tile: str) -> bool:
+    """
+    Validate if a string is a valid MJAI tile notation
+    
+    Args:
+        mjai_tile: Tile string to validate
+    
+    Returns:
+        True if valid, False otherwise
+    """
+    if not mjai_tile or not isinstance(mjai_tile, str):
+        return False
+    
+    # Try to convert - if it succeeds, it's valid
+    try:
+        mjai_tile_to_tenhou_id(mjai_tile)
+        return True
+    except (ValueError, IndexError):
+        return False
+
+
 def make_dahai_decision(game_state: dict, session: dict) -> dict:
     """
     Make a discard (dahai) decision based on current game state
@@ -636,6 +747,14 @@ def make_dahai_decision(game_state: dict, session: dict) -> dict:
     if not hand:
         return {'type': 'none'}
     
+    # Log hand for debugging
+    logger.debug(f"Current hand: {hand}")
+    
+    # Validate all tiles in hand
+    invalid_tiles = [tile for tile in hand if not validate_mjai_tile(tile)]
+    if invalid_tiles:
+        logger.warning(f"Invalid tiles in hand: {invalid_tiles}")
+    
     # Determine the tile to discard
     selected_pai = None
     
@@ -648,6 +767,7 @@ def make_dahai_decision(game_state: dict, session: dict) -> dict:
                 try:
                     tenhou_id = mjai_tile_to_tenhou_id(mjai_tile)
                     tenhou_hand.append(tenhou_id)
+                    logger.debug(f"Converted {mjai_tile} -> {tenhou_id} ({mjai_tile_to_display_string(mjai_tile)})")
                 except ValueError as e:
                     logger.warning(f"Failed to convert tile {mjai_tile}: {e}")
                     # Continue with other tiles

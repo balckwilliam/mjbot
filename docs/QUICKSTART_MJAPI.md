@@ -53,6 +53,13 @@ Or run the client example:
 python online_game/mjapi_client_example.py
 ```
 
+测试 MJAI 牌型处理（包括 '5z' 白板）：
+Test MJAI tile handling (including '5z' White dragon):
+
+```bash
+python online_game/test_5z_handling.py
+```
+
 如果一切正常，您应该看到测试通过的消息！
 If everything works, you should see messages indicating tests passed!
 
