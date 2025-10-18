@@ -94,7 +94,7 @@ def register():
         
     except Exception as e:
         logger.error(f"Error in register: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Registration failed"}), 500
 
 
 @app.route('/user/login', methods=['POST'])
@@ -127,7 +127,7 @@ def login():
         
     except Exception as e:
         logger.error(f"Error in login: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Login failed"}), 500
 
 
 @app.route('/user', methods=['GET'])
@@ -254,7 +254,7 @@ def start_bot():
         
     except Exception as e:
         logger.error(f"Error in start_bot: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Failed to start bot"}), 500
 
 
 @app.route('/mjai/stop', methods=['POST'])
@@ -278,7 +278,7 @@ def stop_bot():
         
     except Exception as e:
         logger.error(f"Error in stop_bot: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Failed to stop bot"}), 500
 
 
 def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[dict]:
@@ -456,7 +456,7 @@ def act():
         
     except Exception as e:
         logger.error(f"Error in act: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Action processing failed"}), 500
 
 
 @app.route('/mjai/batch', methods=['POST'])
@@ -502,7 +502,7 @@ def batch():
         
     except Exception as e:
         logger.error(f"Error in batch: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "Batch processing failed"}), 500
 
 
 @app.route('/health', methods=['GET'])
