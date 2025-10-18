@@ -387,6 +387,19 @@ The MJAPI server uses the [mjai protocol](https://mjai.app/docs/mjai-protocol) f
 - **字牌 / Honor tiles**: `1z`-`7z` (东南西北白发中)
 - **赤牌 / Red tiles**: `5mr`, `5pr`, `5sr` (赤5)
 
+#### 备选字牌表示法 / Alternate Honor Tile Notation
+
+服务器也支持以下单字符字牌表示法（自动转换为标准 mjai 格式）：
+The server also supports the following single-character honor tile notation (automatically converted to standard mjai format):
+
+- **E** → `1z` (东风 / East wind)
+- **S** → `2z` (南风 / South wind)
+- **W** → `3z` (西风 / West wind)
+- **N** → `4z` (北风 / North wind)
+- **P** → `5z` (白板 / White dragon)
+- **F** → `6z` (发财 / Green dragon)
+- **C** → `7z` (红中 / Red dragon)
+
 ## 与 MahjongCopilot 集成 / Integration with MahjongCopilot
 
 在 MahjongCopilot 的设置中：
