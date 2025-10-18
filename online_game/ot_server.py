@@ -115,16 +115,21 @@ def react_batch_4p():
                 try:
                     # Convert observation to tensor
                     # Expected shape: [291, 34] or can be flattened [291*34]
-                    if len(obs) == 291 * 34:  # Flattened observation
-                        state_array = obs.reshape(291, 34)
-                    elif len(obs.shape) == 2 and obs.shape[0] == 291 and obs.shape[1] == 34:
+                    if hasattr(obs, 'ndim') and obs.ndim == 2 and obs.shape[0] == 291 and obs.shape[1] == 34:
+                        # Already in correct 2D shape
                         state_array = obs
+                    elif len(obs) == 291 * 34:
+                        # Flattened observation - need to reshape
+                        state_array = obs.reshape(291, 34)
                     else:
-                        raise ValueError(f"Invalid observation shape: expected [291, 34] or [9894], got {obs.shape if hasattr(obs, 'shape') else len(obs)}")
+                        # Invalid observation shape
+                        obs_shape = getattr(obs, 'shape', f'length {len(obs)}')
+                        raise ValueError(f"Invalid observation shape: expected [291, 34] or [9894], got {obs_shape}")
                     
                     state = torch.from_numpy(state_array).float()[None].to(ai_agent.device)
                     
                     # Get Q-values from the discard model
+                    # Note: We use softmax to convert logits to probabilities for action selection
                     with torch.no_grad():
                         if ai_agent.discard_model is not None:
                             output = ai_agent.discard_model(state).softmax(1)[0]
