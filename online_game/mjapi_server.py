@@ -298,10 +298,14 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
     # Update game state based on message
     game_state = session['game_state']
     
+    # Initialize seat from session if not already set
+    if 'seat' not in game_state:
+        game_state['seat'] = session.get('id', 0)
+    
     # Handle different message types
     if msg_type == 'start_game':
         game_state['started'] = True
-        game_state['seat'] = msg.get('id', 0)
+        game_state['seat'] = msg.get('id', session.get('id', 0))
         return None
     
     elif msg_type == 'start_kyoku':
@@ -316,8 +320,9 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
         # Handle initial hand
         if 'tehais' in msg:
             tehais = msg['tehais']
-            if isinstance(tehais, list) and len(tehais) > game_state.get('seat', 0):
-                game_state['hand'] = tehais[game_state['seat']]
+            seat = game_state.get('seat', 0)
+            if isinstance(tehais, list) and len(tehais) > seat:
+                game_state['hand'] = tehais[seat]
         
         return None
     
