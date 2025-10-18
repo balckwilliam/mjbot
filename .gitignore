@@ -48,8 +48,6 @@ dataset/*.txt
 dataset/*.json
 
 # Model files (except saved models structure)
-model/saved/*/
-!model/saved/.gitkeep
 
 # Temporary files
 *.tmp
