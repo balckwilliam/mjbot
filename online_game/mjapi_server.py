@@ -367,6 +367,10 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
                 # Bot should decide to discard
                 reaction = make_dahai_decision(game_state, session)
                 return reaction
+        else:
+            # Clear tsumo_pai when it's not our turn
+            if 'tsumo_pai' in game_state:
+                del game_state['tsumo_pai']
         
         return None
     
@@ -499,34 +503,44 @@ def make_dahai_decision(game_state: dict, session: dict) -> dict:
     """
     bot = session.get('bot')
     hand = game_state.get('hand', [])
+    tsumo_pai = game_state.get('tsumo_pai')
     
     if not hand:
         return {'type': 'none'}
     
-    # If we have an AI bot, use it
+    # Determine the tile to discard
+    selected_pai = None
+    
+    # If we have an AI bot, use it for decision making
     if bot is not None and TORCH_AVAILABLE:
         try:
-            # For now, use simple random selection
-            # TODO: Implement proper AI decision using the bot
+            # Use the neural network model to make the discard decision
+            # Note: The AI bot expects Tenhou tile IDs (0-135), but MJAI uses strings like "1m", "5pr", etc.
+            # We need to convert MJAI tiles to Tenhou IDs for the model
             import random
+            
+            # For now, use simple random selection as the full integration requires
+            # game state conversion that's beyond the scope of this fix
+            # TODO: Implement full state conversion for proper AI decision
             selected_pai = random.choice(hand)
             
-            return {
-                'type': 'dahai',
-                'pai': selected_pai,
-                'actor': game_state.get('seat', 0)
-            }
         except Exception as e:
             logger.warning(f"Error using AI bot: {e}, falling back to random")
+            import random
+            selected_pai = random.choice(hand)
+    else:
+        # Fallback: random selection
+        import random
+        selected_pai = random.choice(hand)
     
-    # Fallback: random selection
-    import random
-    selected_pai = random.choice(hand)
+    # Determine if this is tsumogiri (discarding the just-drawn tile)
+    tsumogiri = (selected_pai == tsumo_pai) if tsumo_pai else False
     
     return {
         'type': 'dahai',
         'pai': selected_pai,
-        'actor': game_state.get('seat', 0)
+        'actor': game_state.get('seat', 0),
+        'tsumogiri': tsumogiri
     }
 
 
