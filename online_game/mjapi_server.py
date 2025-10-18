@@ -586,7 +586,7 @@ def batch():
         
     except Exception as e:
         logger.error(f"Error in batch: {str(e)}", exc_info=True)
-        return jsonify({"error": "Batch processing failed", "details": str(e)}), 500
+        return jsonify({"error": "Batch processing failed"}), 500
 
 
 @app.route('/health', methods=['GET'])
