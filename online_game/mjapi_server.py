@@ -490,6 +490,44 @@ def process_mjai_message(msg: dict, session: dict, username: str) -> Optional[di
     return None
 
 
+def normalize_tile_format(tile: str) -> str:
+    """
+    Normalize alternate tile formats to standard MJAI format
+    
+    Handles single-character honor tiles:
+    - 'E' = East wind = '1z'
+    - 'S' = South wind = '2z'
+    - 'W' = West wind = '3z'
+    - 'N' = North wind = '4z'
+    - 'P' = White dragon (Haku/Pai) = '5z'
+    - 'F' = Green dragon (Hatsu/Fa) = '6z'
+    - 'C' = Red dragon (Chun) = '7z'
+    
+    Args:
+        tile: Tile string in any supported format
+    
+    Returns:
+        Normalized MJAI tile string
+    """
+    # Mapping of single-character honor tiles to standard MJAI format
+    honor_tile_map = {
+        'E': '1z',  # East wind (东)
+        'S': '2z',  # South wind (南)
+        'W': '3z',  # West wind (西)
+        'N': '4z',  # North wind (北)
+        'P': '5z',  # White dragon (白)
+        'F': '6z',  # Green dragon (发)
+        'C': '7z',  # Red dragon (中)
+    }
+    
+    # If it's a single uppercase character, check if it's a honor tile
+    if len(tile) == 1 and tile.upper() in honor_tile_map:
+        return honor_tile_map[tile.upper()]
+    
+    # Otherwise, return as-is (already in standard format)
+    return tile
+
+
 def mjai_tile_to_tenhou_id(mjai_tile: str) -> int:
     """
     Convert MJAI tile notation to Tenhou tile ID
@@ -504,7 +542,13 @@ def mjai_tile_to_tenhou_id(mjai_tile: str) -> int:
     Returns:
         Tenhou tile ID (0-135)
     """
-    if not mjai_tile or len(mjai_tile) < 2:
+    if not mjai_tile:
+        raise ValueError(f"Invalid MJAI tile: {mjai_tile}")
+    
+    # Normalize tile format first
+    mjai_tile = normalize_tile_format(mjai_tile)
+    
+    if len(mjai_tile) < 2:
         raise ValueError(f"Invalid MJAI tile: {mjai_tile}")
     
     # Check if it's a red tile
